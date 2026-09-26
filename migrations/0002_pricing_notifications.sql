@@ -1,0 +1,3 @@
+CREATE TABLE pricing (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
+CREATE TABLE notification_reads (id TEXT PRIMARY KEY, read_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE push_subscriptions (endpoint TEXT PRIMARY KEY, data TEXT NOT NULL, last_sent_day TEXT, last_test INTEGER NOT NULL DEFAULT 0);

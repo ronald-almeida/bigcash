@@ -1,5 +1,11 @@
 import { validate, type Entry } from "../src/finance";
-interface Env {
+import { calculatePricing } from "../src/pricing";
+import {
+  notificationApi,
+  dailyNotifications,
+  type NotificationEnv,
+} from "./notifications";
+interface Env extends NotificationEnv {
   DB: D1Database;
   ASSETS: Fetcher;
   APP_PASSWORD: string;
@@ -26,6 +32,13 @@ const hash = async (s: string) =>
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
 export default {
+  async scheduled(
+    _event: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ) {
+    ctx.waitUntil(dailyNotifications(env));
+  },
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
@@ -81,6 +94,28 @@ export default {
           .first());
       if (!session)
         return json({ error: "Entre para acessar suas finanças." }, 401);
+      const notifications = await notificationApi(req, env);
+      if (notifications) return notifications;
+      if (url.pathname === "/api/pricing" && req.method === "GET") {
+        const row = await env.DB.prepare(
+          "SELECT data FROM pricing WHERE id=1",
+        ).first<{ data: string }>();
+        return json({ input: row ? JSON.parse(row.data) : null });
+      }
+      if (url.pathname === "/api/pricing" && req.method === "PUT") {
+        const input = await req.json();
+        try {
+          calculatePricing(input as Parameters<typeof calculatePricing>[0]);
+        } catch (e) {
+          return json({ error: (e as Error).message }, 400);
+        }
+        await env.DB.prepare(
+          "INSERT INTO pricing(id,data) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+        )
+          .bind(JSON.stringify(input))
+          .run();
+        return json({ ok: true });
+      }
       if (url.pathname === "/api/logout" && req.method === "POST") {
         await env.DB.prepare("DELETE FROM sessions WHERE token=?")
           .bind(await hash(cookie!))

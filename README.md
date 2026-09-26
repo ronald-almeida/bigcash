@@ -12,6 +12,9 @@ Sistema financeiro em português para uma empresa, com interface responsiva em v
 - Saldo inicial configurável; pendências separadas do caixa disponível.
 - Cadastro, edição, exclusão confirmada, busca, paginação e exportação CSV.
 - Marcação de gastos para revisão e insights sobre compromissos mensais e resultado negativo.
+- Precificação por mensagens: informa leads, limite da BM (250, 1 mil, 2 mil ou personalizado), chips por BM, entregabilidade, custos de chips e margem.
+- A precificação integra automaticamente os lançamentos pagos de Farm de BM, Ferramentas, Despesas fixas e Pró-labore. O rateio aparece em reais e em centavos por mensagem, além do preço total do lote.
+- PWA instalável na tela inicial do iPhone, modo offline para o shell e central de notificações para vencimentos, pendências, revisões e resumo diário.
 - Acesso administrativo protegido por senha, sessão HttpOnly de 24h, verificação de origem e limite de tentativas.
 
 ## Regras de cálculo
@@ -25,6 +28,8 @@ As taxas embutidas na receita são geradas uma vez no dashboard e no caixa. Taxa
 Ferramentas, despesas fixas e pró-labore podem repetir mensalmente. A recorrência inclui a data final; dias 29–31 são ajustados para o último dia dos meses menores. Valor e situação se aplicam a todas as ocorrências do cadastro. Para controle independente de pagamentos mensais, cadastre lançamentos únicos. Editar ou excluir uma série afeta todo o histórico calculado dessa série.
 
 Insights apontam oportunidades para análise do usuário; não determinam automaticamente que um gasto é desnecessário. Não há integração bancária nem cálculo legal de alíquotas.
+
+Na precificação, se o lote tiver 1.001 leads e a capacidade escolhida for BM 250, o cálculo exige 5 BMs (e os chips definidos por BM). Com BM 2 mil, exige uma BM. O custo integrado é somado ao custo do lote; o preço por mensagem é o preço total dividido pelas mensagens a entregar. Assim, R$ 0,20 por mensagem significa 20 centavos, e 1.000 mensagens custam R$ 200,00.
 
 ## Desenvolvimento
 
@@ -44,7 +49,7 @@ npm test
 npm run build
 ```
 
-Os testes cobrem taxas fixas e percentuais, arredondamento, receita líquida, pendências, custos de BM, limites de datas, recorrências e validação. O workflow do GitHub executa testes e build.
+Os testes cobrem taxas fixas e percentuais, arredondamento, receita líquida, pendências, custos de BM, limites de datas, recorrências, validação, precificação por limite de BM, rateio de custos integrados e alertas. O workflow do GitHub executa testes e build.
 
 ## Publicação no Cloudflare
 
@@ -62,6 +67,17 @@ npm run db:remote
 npm run deploy
 npx wrangler secret put APP_PASSWORD
 ```
+
+Para habilitar push com o app fechado, gere chaves VAPID localmente e configure-as como secrets. O iPhone precisa estar no iOS 16.4+, com o site em HTTPS, adicionado à Tela de Início e aberto pelo ícone antes de solicitar a permissão.
+
+```sh
+node scripts/generate-vapid.mjs
+npx wrangler secret put VAPID_SUBJECT # ex.: mailto:admin@seudominio.com
+npx wrangler secret put VAPID_PUBLIC_KEY # valor de .vapid-secrets.json
+npx wrangler secret put VAPID_PRIVATE_KEY # valor de .vapid-secrets.json
+```
+
+O Cron do Worker roda diariamente às 12h UTC, que corresponde a 9h na Bahia durante UTC−3. Ajuste `triggers.crons` em `wrangler.jsonc` se o fuso da operação mudar. A central de notificações funciona sem push e mostra os alertas no app.
 
 Use uma senha forte e exclusiva. Até a senha ser configurada a API recusa qualquer acesso. O Wrangler exibe o endereço `workers.dev` ao publicar. O banco de produção inicia vazio. A senha local de teste não é publicada.
 

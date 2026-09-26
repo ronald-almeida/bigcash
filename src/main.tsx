@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  Calculator,
+  Bell,
   ArrowUpRight,
   ArrowDownRight,
   ArrowRight,
@@ -45,6 +47,9 @@ import {
   type Kind,
 } from "./finance";
 import "./style.css";
+import { Pricing } from "./PricingPage";
+import { Notifications, registerWorker } from "./NotificationsPage";
+import { buildAlerts } from "./notifications";
 const icons = {
   income: TrendingUp,
   daily: Wallet,
@@ -125,7 +130,13 @@ function App() {
   const [password, setPassword] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [balance, setBalance] = useState(0);
-  const [page, setPage] = useState<Kind | "dashboard" | "cash">("dashboard");
+  const [page, setPage] = useState<
+    Kind | "dashboard" | "cash" | "pricing" | "notifications"
+  >(
+    new URLSearchParams(location.search).get("view") === "notifications"
+      ? "notifications"
+      : "dashboard",
+  );
   const [mobile, setMobile] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
@@ -140,6 +151,28 @@ function App() {
   const [from, setFrom] = useState(today().slice(0, 7) + "-01");
   const [to, setTo] = useState(today());
   const [listPage, setListPage] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  useEffect(() => {
+    if (auth !== "ready") return;
+    const refresh = () =>
+      fetch("/api/notifications")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: unknown) => {
+          if (d && typeof d === "object" && "alerts" in d)
+            setUnreadCount(
+              (d as { alerts: { read: boolean }[] }).alerts.filter(
+                (a) => !a.read,
+              ).length,
+            );
+        })
+        .catch(() => {});
+    void refresh();
+    const timer = setInterval(refresh, 60000);
+    return () => clearInterval(timer);
+  }, [auth, entries, page]);
+  const specialPage = page === "pricing" || page === "notifications";
+  const specialTitle =
+    page === "pricing" ? "Precificação por chips" : "Notificações";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const load = async () => {
     const d = await api("data");
@@ -149,6 +182,7 @@ function App() {
   };
   useEffect(() => {
     load().catch(() => setAuth("login"));
+    registerWorker().catch(() => {});
   }, []);
   useEffect(() => {
     if (toast) {
@@ -436,6 +470,8 @@ function App() {
         <div className="nav-label">VISÃO GERAL</div>
         {nav("dashboard", "Dashboard", LayoutDashboard)}
         {nav("cash", "Valor em caixa", Landmark)}
+        {nav("pricing", "Precificação por chips", Calculator)}
+        {nav("notifications", "Notificações", Bell)}
         <div className="nav-label spaced">GESTÃO FINANCEIRA</div>
         {nav("income", "Entradas de receita", TrendingUp)}
         {nav("daily", "Gastos diários", Wallet)}
@@ -499,11 +535,23 @@ function App() {
                   ? "Dashboard"
                   : page === "cash"
                     ? "Valor em caixa"
-                    : labels[page]}
+                    : specialPage
+                      ? specialTitle
+                      : labels[page as Kind]}
               </strong>
             </span>
           </div>
           <div className="topbar-right">
+            <button
+              className="notification-bell"
+              aria-label="Abrir notificações"
+              onClick={() => navigate("notifications")}
+            >
+              <Bell size={19} />
+              {unreadCount > 0 && (
+                <span>{unreadCount > 99 ? "99+" : unreadCount}</span>
+              )}
+            </button>
             <span className="online">
               <i /> Ambiente seguro
             </span>
@@ -519,7 +567,9 @@ function App() {
                   ? "Visão geral"
                   : page === "cash"
                     ? "Valor em caixa"
-                    : labels[page]}
+                    : specialPage
+                      ? specialTitle
+                      : labels[page as Kind]}
                 <span className="heading-dot">.</span>
               </h1>
               <p>
@@ -527,42 +577,59 @@ function App() {
                   ? "Clareza nos números. Confiança nas próximas decisões."
                   : page === "cash"
                     ? "Acompanhe o dinheiro disponível e cada movimentação."
-                    : (
-                        {
-                          income:
-                            "Organize suas entradas e acompanhe o que realmente fica.",
-                          daily:
-                            "Cada gasto conta. Registre e acompanhe suas despesas.",
-                          tool: "Suas assinaturas e ferramentas, sem surpresas no fim do mês.",
-                          bm: "Entenda o custo completo de cada BM da sua operação.",
-                          fee: "Taxas e impostos conectados às suas receitas.",
-                          fixed:
-                            "Previsibilidade para os compromissos da sua empresa.",
-                          salary:
-                            "Organize as retiradas dos sócios com transparência.",
-                        } as Record<Kind, string>
-                      )[page]}
+                    : specialPage
+                      ? page === "pricing"
+                        ? "Calcule chips, custos e margem para cada lote de mensagens."
+                        : "Seus compromissos e alertas, sempre à mão."
+                      : (
+                          {
+                            income:
+                              "Organize suas entradas e acompanhe o que realmente fica.",
+                            daily:
+                              "Cada gasto conta. Registre e acompanhe suas despesas.",
+                            tool: "Suas assinaturas e ferramentas, sem surpresas no fim do mês.",
+                            bm: "Entenda o custo completo de cada BM da sua operação.",
+                            fee: "Taxas e impostos conectados às suas receitas.",
+                            fixed:
+                              "Previsibilidade para os compromissos da sua empresa.",
+                            salary:
+                              "Organize as retiradas dos sócios com transparência.",
+                          } as Record<Kind, string>
+                        )[page as Kind]}
               </p>
             </div>
-            <div className="heading-actions">
-              <button className="secondary" onClick={download}>
-                <Download size={16} />
-                Exportar
-              </button>
-              <button
-                className="primary"
-                onClick={() =>
-                  page === "cash"
-                    ? (setNewBalance(balance), setCashModal(true))
-                    : open(empty(page === "dashboard" ? "daily" : page))
-                }
-              >
-                <Plus size={17} />
-                {page === "cash" ? "Saldo inicial" : "Novo lançamento"}
-              </button>
-            </div>
+            {!specialPage && (
+              <div className="heading-actions">
+                <button className="secondary" onClick={download}>
+                  <Download size={16} />
+                  Exportar
+                </button>
+                <button
+                  className="primary"
+                  onClick={() =>
+                    page === "cash"
+                      ? (setNewBalance(balance), setCashModal(true))
+                      : open(
+                          empty(
+                            page === "dashboard" ? "daily" : (page as Kind),
+                          ),
+                        )
+                  }
+                >
+                  <Plus size={17} />
+                  {page === "cash" ? "Saldo inicial" : "Novo lançamento"}
+                </button>
+              </div>
+            )}
           </div>
-          {page === "dashboard" ? (
+          {page === "pricing" ? (
+            <Pricing entries={entries} />
+          ) : page === "notifications" ? (
+            <Notifications
+              navigate={navigate}
+              onUnreadChange={setUnreadCount}
+            />
+          ) : page === "dashboard" ? (
             <>
               <div className="period-row">
                 <div className="tabs">
