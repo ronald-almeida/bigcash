@@ -306,7 +306,13 @@ export function Pricing({ entries }: { entries: Entry[] }) {
                   </div>
                   <div className="highlight">
                     <dt>Preço por mensagem</dt>
-                    <dd>{unit(result.unitPrice)}</dd>
+                    <dd>
+                      {unit(result.unitPrice)}{" "}
+                      <small>
+                        ({result.unitPrice.toFixed(2).replace(".", ",")}{" "}
+                        centavos)
+                      </small>
+                    </dd>
                   </div>
                   <div className="highlight">
                     <dt>Preço médio por chip</dt>
