@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "bigcash-db",
-      "database_id": "local-bigcash",
+      "database_id": "5469e3b0-1abd-439a-acd3-8bff5deb1067",
       "migrations_dir": "migrations",
     },
   ],
