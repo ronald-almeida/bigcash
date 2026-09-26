@@ -1,0 +1,41 @@
+{
+  "name": "bigcash",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npm run build && wrangler dev",
+    "build": "tsc && vite build",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "deploy": "npm run build && wrangler deploy",
+    "db:local": "wrangler d1 migrations apply bigcash-db --local",
+    "db:remote": "wrangler d1 migrations apply bigcash-db --remote"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ronald-almeida/bigcash.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ronald-almeida/bigcash/issues"
+  },
+  "homepage": "https://github.com/ronald-almeida/bigcash#readme",
+  "description": "",
+  "dependencies": {
+    "lucide-react": "^1.48.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260926.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.9",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "wrangler": "^4.141.0"
+  },
+  "type": "module",
+  "private": true
+}
