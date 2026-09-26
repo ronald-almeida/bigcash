@@ -58,6 +58,7 @@ const icons = {
   fee: Receipt,
   fixed: Repeat2,
   salary: Users,
+  payroll: Users,
 };
 const empty = (kind: Kind): Entry => ({
   id: "",
@@ -67,7 +68,7 @@ const empty = (kind: Kind): Entry => ({
   date: today(),
   category: "Geral",
   notes: "",
-  recurring: ["tool", "fixed", "salary"].includes(kind),
+  recurring: ["tool", "fixed", "salary", "payroll"].includes(kind),
   endDate: "",
   status: "paid",
   feeType: "percent",
@@ -480,6 +481,7 @@ function App() {
         {nav("fee", "Taxas e impostos", Receipt)}
         {nav("fixed", "Despesas fixas", Repeat2)}
         {nav("salary", "Pró-labore", Users)}
+        {nav("payroll", "Folha salarial", Users)}
         <div className="sidebar-bottom">
           <div className="tip">
             <span>
@@ -594,6 +596,8 @@ function App() {
                               "Previsibilidade para os compromissos da sua empresa.",
                             salary:
                               "Organize as retiradas dos sócios com transparência.",
+                            payroll:
+                              "Registre os pagamentos de funcionários e encargos da folha.",
                           } as Record<Kind, string>
                         )[page as Kind]}
               </p>
@@ -1051,7 +1055,7 @@ function App() {
                 <span className="summary-count">
                   {entries.filter((e) => e.kind === page).length} registros
                 </span>
-                {["tool", "fixed", "salary"].includes(page) && (
+                {["tool", "fixed", "salary", "payroll"].includes(page) && (
                   <p>
                     Cadastros recorrentes geram uma ocorrência mensal no
                     dashboard, inclusive pendências.
@@ -1362,6 +1366,7 @@ function App() {
                                   tool: "Assinatura de ferramenta",
                                   fixed: "Aluguel do escritório",
                                   salary: "Retirada do sócio",
+                                  payroll: "Pagamento de folha salarial",
                                   fee: "Imposto sobre vendas",
                                 } as Partial<Record<Kind, string>>
                               )[modal.kind]
@@ -1557,7 +1562,9 @@ function App() {
                       </p>
                     </div>
                   )}
-                  {["tool", "fixed", "salary"].includes(modal.kind) && (
+                  {["tool", "fixed", "salary", "payroll"].includes(
+                    modal.kind,
+                  ) && (
                     <div className="form-section">
                       <label className="checkbox">
                         <input

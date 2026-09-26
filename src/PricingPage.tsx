@@ -32,18 +32,18 @@ export function Pricing({ entries }: { entries: Entry[] }) {
   const integratedCosts = entries
     .filter(
       (e) =>
-        ["bm", "tool", "fixed", "salary"].includes(e.kind) &&
+        ["bm", "tool", "fixed", "salary", "payroll"].includes(e.kind) &&
         e.status === "paid",
     )
     .reduce((sum, e) => sum + entryAmount(e, entries), 0);
-  const integratedByKind = (["bm", "tool", "fixed", "salary"] as const).map(
-    (kind) => ({
-      kind,
-      total: entries
-        .filter((e) => e.kind === kind && e.status === "paid")
-        .reduce((sum, e) => sum + entryAmount(e, entries), 0),
-    }),
-  );
+  const integratedByKind = (
+    ["bm", "tool", "fixed", "salary", "payroll"] as const
+  ).map((kind) => ({
+    kind,
+    total: entries
+      .filter((e) => e.kind === kind && e.status === "paid")
+      .reduce((sum, e) => sum + entryAmount(e, entries), 0),
+  }));
   let result: ReturnType<typeof calculatePricing> | null = null;
   let validation = "";
   try {

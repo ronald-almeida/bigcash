@@ -1,5 +1,5 @@
 export type Kind =
-  "income" | "daily" | "tool" | "bm" | "fixed" | "salary" | "fee";
+  "income" | "daily" | "tool" | "bm" | "fixed" | "salary" | "payroll" | "fee";
 export type Entry = {
   id: string;
   kind: Kind;
@@ -30,6 +30,7 @@ export const labels: Record<Kind, string> = {
   bm: "Farm de BM",
   fixed: "Despesas fixas",
   salary: "Pró-labore",
+  payroll: "Folha salarial",
   fee: "Taxas e impostos",
 };
 export const today = () =>
@@ -176,7 +177,7 @@ export function validate(input: unknown): Entry {
     fail("O valor deve ser maior que zero.");
   if (e.kind === "fee" && (e.feeValue <= 0 || !e.incomeId))
     fail("Selecione uma receita e informe a taxa.");
-  if (e.recurring && !["tool", "fixed", "salary"].includes(e.kind))
+  if (e.recurring && !["tool", "fixed", "salary", "payroll"].includes(e.kind))
     fail("Recorrência não permitida para este lançamento.");
   return {
     id: typeof e.id === "string" ? e.id : "",
