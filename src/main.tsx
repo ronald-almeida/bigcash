@@ -50,6 +50,7 @@ import "./style.css";
 import { Pricing } from "./PricingPage";
 import { Notifications, registerWorker } from "./NotificationsPage";
 import { buildAlerts } from "./notifications";
+import { Goals } from "./Goals";
 const icons = {
   income: TrendingUp,
   daily: Wallet,
@@ -714,6 +715,13 @@ function App() {
                   dark
                 />
               </div>
+              <Goals
+                key={`${from}:${to}`}
+                from={from}
+                to={period === "month" ? new Date(Date.UTC(Number(from.slice(0, 4)), Number(from.slice(5, 7)), 0)).toISOString().slice(0, 10) : period === "year" ? `${from.slice(0, 4)}-12-31` : to}
+                income={sums.income}
+                profit={sums.net}
+              />
               <div className="dashboard-grid">
                 <section className="panel flow">
                   <PanelHead

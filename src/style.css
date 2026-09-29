@@ -2290,3 +2290,64 @@ dialog {
   color: #8ca17f;
   font-style: normal;
 }
+
+.goals-panel {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.goals-panel h2 {
+  margin: 0 0 10px;
+}
+.goals-panel p {
+  color: #64756c;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.goals-grid,
+.goals-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+.goal-card {
+  background: #f4f9f6;
+  border-radius: 14px;
+  padding: 20px;
+}
+.goal-card h3 {
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+.goal-card strong {
+  font-size: 25px;
+}
+.goal-card progress {
+  display: block;
+  width: 100%;
+  height: 12px;
+  accent-color: #178151;
+}
+.goals-form label {
+  display: grid;
+  gap: 8px;
+}
+.goals-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d8e5dd;
+  border-radius: 8px;
+}
+.goals-form button {
+  justify-self: start;
+}
+@media (max-width: 640px) {
+  .goals-grid,
+  .goals-form {
+    grid-template-columns: 1fr;
+  }
+  .goals-panel {
+    padding: 16px;
+  }
+}

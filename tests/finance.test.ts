@@ -106,3 +106,36 @@ test("recurrence before selected period still includes selected month", () => {
     "2026-09-30",
   );
 });
+
+test("profit deducts pro-labore and payroll without counting pending payments or initial cash", () => {
+  const income = { ...base, date: "2026-01-01", feeValue: 0 };
+  const salary = {
+    ...income,
+    id: "salary",
+    kind: "salary" as const,
+    amount: 20000,
+    recurring: true,
+  };
+  const payroll = {
+    ...income,
+    id: "payroll",
+    kind: "payroll" as const,
+    amount: 30000,
+  };
+  const pending = {
+    ...salary,
+    id: "pending",
+    status: "pending" as const,
+    amount: 90000,
+  };
+  assert.deepEqual(
+    totals(
+      movements([income, salary, payroll, pending], "2026-01-01", "2026-01-31"),
+    ),
+    { income: 100000, expense: 50000, net: 50000 },
+  );
+  assert.equal(
+    totals(movements([salary], "2026-02-01", "2026-02-28")).net,
+    -20000,
+  );
+});

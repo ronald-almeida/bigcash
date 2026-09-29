@@ -1,4 +1,4 @@
-import { validate, type Entry } from "../src/finance";
+import { validate, validDate, type Entry } from "../src/finance";
 import { calculatePricing } from "../src/pricing";
 import {
   notificationApi,
@@ -96,6 +96,45 @@ export default {
         return json({ error: "Entre para acessar suas finanças." }, 401);
       const notifications = await notificationApi(req, env);
       if (notifications) return notifications;
+      if (
+        url.pathname === "/api/goals" &&
+        ["GET", "PUT"].includes(req.method)
+      ) {
+        const body =
+          req.method === "GET"
+            ? Object.fromEntries(url.searchParams)
+            : ((await req.json()) as Record<string, unknown>);
+        if (
+          !body ||
+          !validDate(body.from) ||
+          !validDate(body.to) ||
+          body.from > body.to
+        )
+          return json({ error: "Período inválido." }, 400);
+        if (req.method === "GET") {
+          const goal = await env.DB.prepare(
+            "SELECT revenue, profit FROM goals WHERE start_date=? AND end_date=?",
+          )
+            .bind(body.from, body.to)
+            .first();
+          return json(goal ?? { revenue: 0, profit: 0 });
+        }
+        if (
+          ![body.revenue, body.profit].every(
+            (n) =>
+              Number.isSafeInteger(n) &&
+              Number(n) >= 0 &&
+              Number(n) <= 100000000000,
+          )
+        )
+          return json({ error: "Informe metas válidas em reais." }, 400);
+        await env.DB.prepare(
+          "INSERT INTO goals(start_date,end_date,revenue,profit) VALUES(?,?,?,?) ON CONFLICT(start_date,end_date) DO UPDATE SET revenue=excluded.revenue,profit=excluded.profit",
+        )
+          .bind(body.from, body.to, body.revenue, body.profit)
+          .run();
+        return json({ ok: true });
+      }
       if (url.pathname === "/api/pricing" && req.method === "GET") {
         const row = await env.DB.prepare(
           "SELECT data FROM pricing WHERE id=1",
