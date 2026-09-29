@@ -1,3 +1,5 @@
+import { monthlyHistory } from "./monthly";
+import { today } from "../src/finance";
 import { validate, validDate, type Entry } from "../src/finance";
 import { calculatePricing } from "../src/pricing";
 import {
@@ -37,7 +39,7 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ) {
-    ctx.waitUntil(dailyNotifications(env));
+    ctx.waitUntil(monthlyHistory(env.DB).then(() => dailyNotifications(env)));
   },
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -96,45 +98,35 @@ export default {
         return json({ error: "Entre para acessar suas finanças." }, 401);
       const notifications = await notificationApi(req, env);
       if (notifications) return notifications;
-      if (
-        url.pathname === "/api/goals" &&
-        ["GET", "PUT"].includes(req.method)
-      ) {
-        const body =
-          req.method === "GET"
-            ? Object.fromEntries(url.searchParams)
-            : ((await req.json()) as Record<string, unknown>);
+      if (url.pathname === "/api/monthly-goals" && req.method === "GET")
+        return json({ months: await monthlyHistory(env.DB) });
+      if (url.pathname === "/api/monthly-goals" && req.method === "PUT") {
+        const body = (await req.json()) as {
+          month: string;
+          revenue_target: number;
+          profit_target: number;
+        };
         if (
           !body ||
-          !validDate(body.from) ||
-          !validDate(body.to) ||
-          body.from > body.to
-        )
-          return json({ error: "Período inválido." }, 400);
-        if (req.method === "GET") {
-          const goal = await env.DB.prepare(
-            "SELECT revenue, profit FROM goals WHERE start_date=? AND end_date=?",
-          )
-            .bind(body.from, body.to)
-            .first();
-          return json(goal ?? { revenue: 0, profit: 0 });
-        }
-        if (
-          ![body.revenue, body.profit].every(
-            (n) =>
-              Number.isSafeInteger(n) &&
-              Number(n) >= 0 &&
-              Number(n) <= 100000000000,
+          !validDate(body.month + "-01") ||
+          ![body.revenue_target, body.profit_target].every(
+            (n) => Number.isSafeInteger(n) && n >= 0 && n <= 100000000000,
           )
         )
-          return json({ error: "Informe metas válidas em reais." }, 400);
+          return json({ error: "Informe o mês e metas válidas." }, 400);
+        if (body.month < today().slice(0, 7))
+          return json(
+            { error: "Meses encerrados preservam suas metas e resultados." },
+            400,
+          );
         await env.DB.prepare(
-          "INSERT INTO goals(start_date,end_date,revenue,profit) VALUES(?,?,?,?) ON CONFLICT(start_date,end_date) DO UPDATE SET revenue=excluded.revenue,profit=excluded.profit",
+          "INSERT INTO monthly_goals(month,revenue_target,profit_target) VALUES(?,?,?) ON CONFLICT(month) DO UPDATE SET revenue_target=excluded.revenue_target,profit_target=excluded.profit_target WHERE monthly_goals.closed_at IS NULL",
         )
-          .bind(body.from, body.to, body.revenue, body.profit)
+          .bind(body.month, body.revenue_target, body.profit_target)
           .run();
         return json({ ok: true });
       }
+      if (req.method !== "GET") await monthlyHistory(env.DB);
       if (url.pathname === "/api/pricing" && req.method === "GET") {
         const row = await env.DB.prepare(
           "SELECT data FROM pricing WHERE id=1",

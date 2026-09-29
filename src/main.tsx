@@ -133,7 +133,7 @@ function App() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [balance, setBalance] = useState(0);
   const [page, setPage] = useState<
-    Kind | "dashboard" | "cash" | "pricing" | "notifications"
+    Kind | "dashboard" | "cash" | "pricing" | "notifications" | "goals"
   >(
     new URLSearchParams(location.search).get("view") === "notifications"
       ? "notifications"
@@ -172,9 +172,14 @@ function App() {
     const timer = setInterval(refresh, 60000);
     return () => clearInterval(timer);
   }, [auth, entries, page]);
-  const specialPage = page === "pricing" || page === "notifications";
+  const specialPage =
+    page === "pricing" || page === "notifications" || page === "goals";
   const specialTitle =
-    page === "pricing" ? "Precificação por chips" : "Notificações";
+    page === "pricing"
+      ? "Precificação por chips"
+      : page === "goals"
+        ? "Metas"
+        : "Notificações";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const load = async () => {
     const d = await api("data");
@@ -218,6 +223,9 @@ function App() {
   };
   const rows = movements(entries, from, to);
   const sums = totals(rows);
+  const monthlySums = totals(
+    movements(entries, today().slice(0, 7) + "-01", today()),
+  );
   const allRows = movements(entries, "2000-01-01", today());
   const total = totals(allRows);
   const cash = balance + total.net;
@@ -473,6 +481,7 @@ function App() {
         {nav("dashboard", "Dashboard", LayoutDashboard)}
         {nav("cash", "Valor em caixa", Landmark)}
         {nav("pricing", "Precificação por chips", Calculator)}
+        {nav("goals", "Metas", TrendingUp)}
         {nav("notifications", "Notificações", Bell)}
         <div className="nav-label spaced">GESTÃO FINANCEIRA</div>
         {nav("income", "Entradas de receita", TrendingUp)}
@@ -583,7 +592,9 @@ function App() {
                     : specialPage
                       ? page === "pricing"
                         ? "Calcule chips, custos e margem para cada lote de mensagens."
-                        : "Seus compromissos e alertas, sempre à mão."
+                        : page === "goals"
+                          ? "Planeje o mês e acompanhe seu histórico de resultados."
+                          : "Seus compromissos e alertas, sempre à mão."
                       : (
                           {
                             income:
@@ -634,350 +645,32 @@ function App() {
               navigate={navigate}
               onUnreadChange={setUnreadCount}
             />
+          ) : page === "goals" ? (
+            <Goals />
           ) : page === "dashboard" ? (
             <>
-              <div className="period-row">
-                <div className="tabs">
-                  {[
-                    ["month", "Este mês"],
-                    ["last", "Mês passado"],
-                    ["year", "Este ano"],
-                    ["all", "Tudo"],
-                  ].map(([k, l]) => (
-                    <button
-                      key={k}
-                      className={period === k ? "selected" : ""}
-                      onClick={() => range(k)}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                <div className="date-range">
-                  <CalendarDays size={16} />
-                  <input
-                    aria-label="Data inicial"
-                    type="date"
-                    value={from}
-                    max={to}
-                    min="2000-01-01"
-                    onChange={(e) => {
-                      if (e.target.value && e.target.value <= to) {
-                        setFrom(e.target.value);
-                        setPeriod("custom");
-                      }
-                    }}
-                  />
-                  <span>—</span>
-                  <input
-                    aria-label="Data final"
-                    type="date"
-                    value={to}
-                    min={from}
-                    max="2100-12-31"
-                    onChange={(e) => {
-                      if (e.target.value && e.target.value >= from) {
-                        setTo(e.target.value);
-                        setPeriod("custom");
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="stats">
+              <p>
+                Resultados de{" "}
+                {new Date(today() + "T12:00:00Z").toLocaleDateString("pt-BR", {
+                  month: "long",
+                  year: "numeric",
+                  timeZone: "UTC",
+                })}{" "}
+                até hoje.
+              </p>
+              <div className="goals-grid">
                 <Stat
-                  label="Receita recebida"
-                  value={money(sums.income)}
+                  label="Faturamento do mês"
+                  value={money(monthlySums.income)}
                   Icon={ArrowUpRight}
-                  detail="Entradas confirmadas no período"
+                  detail="Receitas recebidas no mês"
                 />
                 <Stat
-                  label="Despesas pagas"
-                  value={money(sums.expense)}
-                  Icon={ArrowDownRight}
-                  detail="Todos os custos do período"
-                />
-                <Stat
-                  label="Resultado do período"
-                  value={money(sums.net)}
+                  label="Lucro do mês"
+                  value={money(monthlySums.net)}
                   Icon={TrendingUp}
-                  detail={
-                    sums.income
-                      ? `${margin.toFixed(1).replace(".", ",")}% de margem sobre a receita`
-                      : "Receitas menos despesas"
-                  }
+                  detail="Após despesas, folha, impostos e pró-labore"
                 />
-                <Stat
-                  label="Disponível em caixa"
-                  value={money(cash)}
-                  Icon={Landmark}
-                  detail="Saldo acumulado até hoje"
-                  dark
-                />
-              </div>
-              <Goals
-                key={`${from}:${to}`}
-                from={from}
-                to={period === "month" ? new Date(Date.UTC(Number(from.slice(0, 4)), Number(from.slice(5, 7)), 0)).toISOString().slice(0, 10) : period === "year" ? `${from.slice(0, 4)}-12-31` : to}
-                income={sums.income}
-                profit={sums.net}
-              />
-              <div className="dashboard-grid">
-                <section className="panel flow">
-                  <PanelHead
-                    title="Fluxo financeiro"
-                    sub="O movimento do seu dinheiro no período"
-                    action={
-                      <div className="legend">
-                        <span>
-                          <i />
-                          Receitas
-                        </span>
-                        <span>
-                          <i className="pale" />
-                          Despesas
-                        </span>
-                      </div>
-                    }
-                  />
-                  <div className="chart">
-                    <div className="chart-labels">
-                      {[1, 0.75, 0.5, 0.25, 0].map((n) => (
-                        <span key={n}>{money(maxChart * n)}</span>
-                      ))}
-                    </div>
-                    <div className="chart-plot">
-                      <div className="gridlines">
-                        {[0, 1, 2, 3, 4].map((n) => (
-                          <i key={n} />
-                        ))}
-                      </div>
-                      <div className="bars">
-                        {buckets.map((b, i) => (
-                          <div className="bar-group" key={i}>
-                            <div className="bar-pair">
-                              <div
-                                title={"Receitas: " + money(b.income)}
-                                className="bar income"
-                                style={{
-                                  height: `${(b.income / maxChart) * 100}%`,
-                                }}
-                              />
-                              <div
-                                title={"Despesas: " + money(b.expense)}
-                                className="bar expense"
-                                style={{
-                                  height: `${(b.expense / maxChart) * 100}%`,
-                                }}
-                              />
-                            </div>
-                            <span>{displayDate(b.date).slice(0, 5)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {!rows.length && (
-                        <div className="chart-empty">
-                          <TrendingUp size={25} />
-                          <strong>Seu próximo capítulo começa aqui</strong>
-                          <span>
-                            Adicione um lançamento para acompanhar o fluxo.
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="chart-footer">
-                    <span>
-                      <i className="live-dot" /> Valores calculados a partir dos
-                      seus registros
-                    </span>
-                    <strong>
-                      {money(sums.net)} <small>no período</small>
-                    </strong>
-                  </div>
-                </section>
-                <section className="panel distribution">
-                  <PanelHead
-                    title="Para onde vai o dinheiro"
-                    sub="Distribuição das despesas pagas"
-                  />
-                  <div className="donut-wrap">
-                    <div
-                      className="donut"
-                      style={{
-                        background: sums.expense
-                          ? `conic-gradient(${expenseGroups
-                              .map((g, i) => {
-                                const start =
-                                  (expenseGroups
-                                    .slice(0, i)
-                                    .reduce((s, g) => s + g.value, 0) /
-                                    sums.expense) *
-                                  100;
-                                return `${["#1c6b4d", "#68a985", "#accbb2", "#d9e7d6", "#8baa64", "#d9caa5"][i]} ${start}% ${start + (g.value / sums.expense) * 100}%`;
-                              })
-                              .join(",")})`
-                          : "#edf2ec",
-                      }}
-                    >
-                      <div>
-                        <span>Total de despesas</span>
-                        <strong>{money(sums.expense)}</strong>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="category-list">
-                    {expenseGroups.length ? (
-                      expenseGroups.slice(0, 6).map((g, i) => (
-                        <div key={g.kind}>
-                          <span>
-                            <i
-                              style={{
-                                background: [
-                                  "#1c6b4d",
-                                  "#68a985",
-                                  "#accbb2",
-                                  "#d9e7d6",
-                                  "#8baa64",
-                                  "#d9caa5",
-                                ][i],
-                              }}
-                            />
-                            {labels[g.kind]}
-                          </span>
-                          <strong>
-                            {((g.value / sums.expense) * 100).toFixed(0)}%{" "}
-                            <small>{money(g.value)}</small>
-                          </strong>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="muted centered">
-                        As categorias aparecerão após o primeiro gasto.
-                      </p>
-                    )}
-                  </div>
-                </section>
-                <section className="insight-panel">
-                  <div className="insight-icon">
-                    <Leaf size={22} />
-                  </div>
-                  <div>
-                    <div className="insight-heading">
-                      <h3>Um olhar para economizar</h3>
-                      <span>INSIGHTS</span>
-                    </div>
-                    <p>
-                      {flagged.length
-                        ? `${flagged.length} despesa(s) marcada(s) para revisão. Comece por ${flagged[0].name} e avalie se ainda faz sentido para o negócio.`
-                        : monthly
-                          ? `Seus compromissos mensais ativos somam ${money(monthly)}. Revise assinaturas e serviços pouco utilizados para reduzir esse custo.`
-                          : sums.net < 0
-                            ? "As despesas superaram as receitas neste período. Revise os maiores gastos e confira as entradas pendentes."
-                            : "Marque despesas para revisão nos cadastros. Assim, fica mais fácil encontrar oportunidades de economia."}
-                    </p>
-                  </div>
-                  <button onClick={() => navigate(flagged[0]?.kind || "tool")}>
-                    Revisar despesas <ArrowRight size={16} />
-                  </button>
-                </section>
-                <section className="panel recent">
-                  <PanelHead
-                    title="Últimas movimentações"
-                    sub="O que entrou e saiu no período"
-                    action={
-                      <button
-                        className="text-button"
-                        onClick={() => navigate("daily")}
-                      >
-                        Ver gastos <ArrowRight size={14} />
-                      </button>
-                    }
-                  />
-                  {rows.length ? (
-                    <div className="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Descrição</th>
-                            <th>Categoria</th>
-                            <th>Data</th>
-                            <th>Situação</th>
-                            <th className="right">Valor</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.slice(0, 6).map((e, i) => (
-                            <tr key={e.id + e.occurrence + i}>
-                              <td>
-                                <div className="description">
-                                  <span
-                                    className={
-                                      "entry-icon " +
-                                      (e.kind === "income" ? "positive" : "")
-                                    }
-                                  >
-                                    {e.kind === "income" ? (
-                                      <ArrowUpRight size={17} />
-                                    ) : (
-                                      <ArrowDownRight size={17} />
-                                    )}
-                                  </span>
-                                  <div>
-                                    <strong>{e.name}</strong>
-                                    <small>{e.category}</small>
-                                  </div>
-                                </div>
-                              </td>
-                              <td>{labels[e.kind]}</td>
-                              <td>{displayDate(e.occurrence)}</td>
-                              <td>
-                                <Badge status={e.status} />
-                              </td>
-                              <td
-                                className={
-                                  "right amount " +
-                                  (e.kind === "income" ? "green" : "")
-                                }
-                              >
-                                {e.kind === "income" ? "+" : "−"}{" "}
-                                {money(e.total)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <Empty
-                      title="Tudo pronto para o primeiro lançamento"
-                      text="Suas receitas e despesas vão aparecer aqui."
-                      onClick={() => open(empty("income"))}
-                    />
-                  )}
-                </section>
-                <section className="panel quick">
-                  <PanelHead
-                    title="Planeje os próximos passos"
-                    sub="Mantenha a operação sob controle"
-                  />
-                  <div className="quick-stat">
-                    <span>Compromissos mensais ativos</span>
-                    <strong>{money(monthly)}</strong>
-                    <small>Ferramentas, despesas fixas e pró-labore</small>
-                  </div>
-                  <div className="quick-stat">
-                    <span>Resultado pendente no período</span>
-                    <strong>{money(pending)}</strong>
-                    <small>Entradas previstas menos saídas pendentes</small>
-                  </div>
-                  <button
-                    className="secondary full"
-                    onClick={() => navigate("fixed")}
-                  >
-                    Ver despesas fixas <ArrowRight size={15} />
-                  </button>
-                </section>
               </div>
             </>
           ) : page === "cash" ? (
