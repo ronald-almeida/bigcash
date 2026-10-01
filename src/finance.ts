@@ -1,5 +1,13 @@
 export type Kind =
-  "income" | "daily" | "tool" | "bm" | "fixed" | "salary" | "payroll" | "fee";
+  | "income"
+  | "daily"
+  | "tool"
+  | "bm"
+  | "fixed"
+  | "salary"
+  | "payroll"
+  | "fee"
+  | "debt";
 export type Entry = {
   id: string;
   kind: Kind;
@@ -31,6 +39,7 @@ export const labels: Record<Kind, string> = {
   fixed: "Despesas fixas",
   salary: "Pró-labore",
   payroll: "Folha salarial",
+  debt: "Dívida atrasada",
   fee: "Taxas e impostos",
 };
 export const today = () =>

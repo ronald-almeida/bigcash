@@ -61,18 +61,24 @@ const icons = {
   fixed: Repeat2,
   salary: Users,
   payroll: Users,
+  debt: AlertCircle,
 };
 const empty = (kind: Kind): Entry => ({
   id: "",
   kind,
   name: "",
   amount: 0,
-  date: today(),
+  date:
+    kind === "debt"
+      ? new Date(Date.parse(today() + "T12:00:00Z") - 86400000)
+          .toISOString()
+          .slice(0, 10)
+      : today(),
   category: "Geral",
   notes: "",
   recurring: ["tool", "fixed", "salary", "payroll"].includes(kind),
   endDate: "",
-  status: "paid",
+  status: kind === "debt" ? "pending" : "paid",
   feeType: "percent",
   feeValue: 0,
   feeClass: "service",
@@ -290,7 +296,7 @@ function App() {
     try {
       if (modal) {
         if (
-          page === "debts" &&
+          (page === "debts" || modal.kind === "debt") &&
           !modal.id &&
           (modal.kind === "income" ||
             modal.status !== "pending" ||
@@ -326,7 +332,7 @@ function App() {
   const update = (key: keyof Entry, value: unknown) =>
     setModal((prev) => (prev ? { ...prev, [key]: value } : prev));
   const navigate = (p: typeof page) => {
-    setPage(p);
+    setPage(p === "debt" ? "debts" : p);
     setMobile(false);
   };
   const filtered = entries
@@ -547,7 +553,6 @@ function App() {
         {nav("bm", "Farm de BM", Layers)}
         {nav("fee", "Taxas e impostos", Receipt)}
         {nav("fixed", "Despesas fixas", Repeat2)}
-        {nav("payroll", "Folha salarial", Users)}
         <div className="sidebar-bottom">
           <div className="tip">
             <span>
@@ -705,7 +710,7 @@ function App() {
               onEdit={open}
               onAdd={() =>
                 open({
-                  ...empty("daily"),
+                  ...empty("debt"),
                   status: "pending",
                   date: new Date(Date.parse(today() + "T12:00:00Z") - 86400000)
                     .toISOString()
@@ -1479,8 +1484,15 @@ function App() {
                                   ...empty(e.target.value as Kind),
                                   name: prev.name,
                                   amount: prev.amount,
-                                  date: prev.date,
-                                  status: prev.status,
+                                  date:
+                                    e.target.value === "debt" &&
+                                    prev.date >= today()
+                                      ? empty("debt").date
+                                      : prev.date,
+                                  status:
+                                    e.target.value === "debt"
+                                      ? "pending"
+                                      : prev.status,
                                   notes: prev.notes,
                                   category: prev.category,
                                 }
@@ -1492,6 +1504,7 @@ function App() {
                           .filter(
                             ([k]) =>
                               k !== "salary" &&
+                              k !== "payroll" &&
                               (page !== "debts" ||
                                 !!modal.id ||
                                 k !== "income"),
@@ -1508,7 +1521,9 @@ function App() {
                       <select
                         value={modal.status}
                         disabled={
-                          (page === "debts" && !modal.id) || installments > 1
+                          ((page === "debts" || modal.kind === "debt") &&
+                            !modal.id) ||
+                          installments > 1
                         }
                         onChange={(e) => update("status", e.target.value)}
                       >
@@ -1537,6 +1552,7 @@ function App() {
                                   fixed: "Aluguel do escritório",
                                   salary: "Retirada do sócio",
                                   payroll: "Pagamento de folha salarial",
+                                  debt: "Conta vencida",
                                   fee: "Imposto sobre vendas",
                                 } as Partial<Record<Kind, string>>
                               )[modal.kind]
@@ -1737,7 +1753,9 @@ function App() {
                     </div>
                   )}
                   {!modal.id &&
-                    (modal.kind === "fixed" || page === "debts") &&
+                    (modal.kind === "fixed" ||
+                      modal.kind === "debt" ||
+                      page === "debts") &&
                     !["income", "bm", "fee"].includes(modal.kind) && (
                       <div className="form-section">
                         <label className="checkbox">
