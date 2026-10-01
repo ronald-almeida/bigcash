@@ -1,7 +1,7 @@
 import { monthlyHistory } from "./monthly";
 import { today } from "../src/finance";
 import { validate, validDate, type Entry } from "../src/finance";
-import { calculatePricing } from "../src/pricing";
+import { installmentEntries } from "../src/installments";
 import {
   notificationApi,
   dailyNotifications,
@@ -129,26 +129,6 @@ export default {
         return json({ ok: true });
       }
       if (req.method !== "GET") await monthlyHistory(env.DB);
-      if (url.pathname === "/api/pricing" && req.method === "GET") {
-        const row = await env.DB.prepare(
-          "SELECT data FROM pricing WHERE id=1",
-        ).first<{ data: string }>();
-        return json({ input: row ? JSON.parse(row.data) : null });
-      }
-      if (url.pathname === "/api/pricing" && req.method === "PUT") {
-        const input = await req.json();
-        try {
-          calculatePricing(input as Parameters<typeof calculatePricing>[0]);
-        } catch (e) {
-          return json({ error: (e as Error).message }, 400);
-        }
-        await env.DB.prepare(
-          "INSERT INTO pricing(id,data) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-        )
-          .bind(JSON.stringify(input))
-          .run();
-        return json({ ok: true });
-      }
       if (url.pathname === "/api/logout" && req.method === "POST") {
         await env.DB.prepare("DELETE FROM sessions WHERE token=?")
           .bind(await hash(cookie!))
@@ -181,6 +161,32 @@ export default {
           .bind(body.openingBalance)
           .run();
         return json({ ok: true });
+      }
+      if (url.pathname === "/api/installments" && req.method === "POST") {
+        let parts: Entry[];
+        try {
+          const body = (await req.json()) as {
+            entry: unknown;
+            count: number;
+            requestId: string;
+          };
+          parts = installmentEntries(body.entry, body.count, body.requestId);
+        } catch (e) {
+          return json(
+            {
+              error: e instanceof Error ? e.message : "Parcelamento inválido.",
+            },
+            400,
+          );
+        }
+        await env.DB.batch(
+          parts.map((e) =>
+            env.DB.prepare(
+              "INSERT OR IGNORE INTO entries(id,data) VALUES(?,?)",
+            ).bind(e.id, JSON.stringify(e)),
+          ),
+        );
+        return json({ ok: true, count: parts.length });
       }
       if (url.pathname === "/api/entries" && req.method === "POST") {
         let e: Entry;

@@ -48,7 +48,7 @@ import {
   type Kind,
 } from "./finance";
 import "./style.css";
-import { Pricing } from "./PricingPage";
+
 import { Notifications, registerWorker } from "./NotificationsPage";
 import { buildAlerts } from "./notifications";
 import { Goals } from "./Goals";
@@ -140,13 +140,7 @@ function App() {
   const [goalError, setGoalError] = useState("");
 
   const [page, setPage] = useState<
-    | Kind
-    | "dashboard"
-    | "cash"
-    | "pricing"
-    | "notifications"
-    | "goals"
-    | "debts"
+    Kind | "dashboard" | "cash" | "notifications" | "goals" | "debts"
   >(
     new URLSearchParams(location.search).get("view") === "notifications"
       ? "notifications"
@@ -157,6 +151,8 @@ function App() {
   const [status, setStatus] = useState("all");
   const [modal, setModal] = useState<Entry | null>(null);
   const [cashModal, setCashModal] = useState(false);
+  const [installments, setInstallments] = useState(1);
+  const installmentRequest = useRef(crypto.randomUUID());
   const [newBalance, setNewBalance] = useState(0);
   const [del, setDel] = useState<Entry | null>(null);
   const [busy, setBusy] = useState(false);
@@ -215,18 +211,13 @@ function App() {
     return () => controller.abort();
   }, [auth, page]);
   const specialPage =
-    page === "pricing" ||
-    page === "notifications" ||
-    page === "goals" ||
-    page === "debts";
+    page === "notifications" || page === "goals" || page === "debts";
   const specialTitle =
-    page === "pricing"
-      ? "Precificação por chips"
-      : page === "goals"
-        ? "Metas"
-        : page === "debts"
-          ? "Dívidas atrasadas"
-          : "Notificações";
+    page === "goals"
+      ? "Metas"
+      : page === "debts"
+        ? "Dívidas atrasadas"
+        : "Notificações";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const load = async () => {
     const d = await api("data");
@@ -298,10 +289,24 @@ function App() {
     setError("");
     try {
       if (modal) {
-        if (page === "debts" && !modal.id && (modal.kind === "income" || modal.status !== "pending" || modal.date >= today())) {
-          throw new Error("Para adicionar uma dívida atrasada, informe uma despesa pendente com vencimento anterior a hoje.");
+        if (
+          page === "debts" &&
+          !modal.id &&
+          (modal.kind === "income" ||
+            modal.status !== "pending" ||
+            modal.date >= today())
+        ) {
+          throw new Error(
+            "Para adicionar uma dívida atrasada, informe uma despesa pendente com vencimento anterior a hoje.",
+          );
         }
-        await api("entries", "POST", modal);
+        if (installments > 1 && !modal.id)
+          await api("installments", "POST", {
+            entry: { ...modal, recurring: false, endDate: "" },
+            count: installments,
+            requestId: installmentRequest.current,
+          });
+        else await api("entries", "POST", modal);
         setModal(null);
       } else if (cashModal) {
         await api("settings", "PUT", { openingBalance: newBalance });
@@ -387,6 +392,8 @@ function App() {
     </button>
   );
   const open = (e: Entry) => {
+    setInstallments(1);
+    installmentRequest.current = crypto.randomUUID();
     setError("");
     setModal(structuredClone(e));
   };
@@ -530,7 +537,6 @@ function App() {
         <div className="nav-label">VISÃO GERAL</div>
         {nav("dashboard", "Dashboard", LayoutDashboard)}
         {nav("cash", "Valor em caixa", Landmark)}
-        {nav("pricing", "Precificação por chips", Calculator)}
         {nav("goals", "Metas", TrendingUp)}
         {nav("debts", "Dívidas atrasadas", AlertCircle)}
         {nav("notifications", "Notificações", Bell)}
@@ -541,7 +547,6 @@ function App() {
         {nav("bm", "Farm de BM", Layers)}
         {nav("fee", "Taxas e impostos", Receipt)}
         {nav("fixed", "Despesas fixas", Repeat2)}
-        {nav("salary", "Pró-labore", Users)}
         {nav("payroll", "Folha salarial", Users)}
         <div className="sidebar-bottom">
           <div className="tip">
@@ -641,13 +646,11 @@ function App() {
                   : page === "cash"
                     ? "Acompanhe o dinheiro disponível e cada movimentação."
                     : specialPage
-                      ? page === "pricing"
-                        ? "Calcule chips, custos e margem para cada lote de mensagens."
-                        : page === "goals"
-                          ? "Planeje o mês e acompanhe seu histórico de resultados."
-                          : page === "debts"
-                            ? "Organize os pagamentos vencidos e acompanhe suas pendências."
-                            : "Seus compromissos e alertas, sempre à mão."
+                      ? page === "goals"
+                        ? "Planeje o mês e acompanhe seu histórico de resultados."
+                        : page === "debts"
+                          ? "Organize os pagamentos vencidos e acompanhe suas pendências."
+                          : "Seus compromissos e alertas, sempre à mão."
                       : (
                           {
                             income:
@@ -691,9 +694,7 @@ function App() {
               </div>
             )}
           </div>
-          {page === "pricing" ? (
-            <Pricing entries={entries} />
-          ) : page === "notifications" ? (
+          {page === "notifications" ? (
             <Notifications
               navigate={navigate}
               onUnreadChange={setUnreadCount}
@@ -1424,7 +1425,9 @@ function App() {
                     ? "Configurar saldo inicial"
                     : modal?.id
                       ? "Editar lançamento"
-                      : page === "debts" ? "Adicionar dívida atrasada" : "Novo lançamento"}
+                      : page === "debts"
+                        ? "Adicionar dívida atrasada"
+                        : "Novo lançamento"}
               </h2>
             </div>
             <button
@@ -1468,23 +1471,45 @@ function App() {
                       <select
                         value={modal.kind}
                         disabled={!!modal.id}
-                        onChange={(e) => setModal(prev => prev ? {
-                          ...empty(e.target.value as Kind), name: prev.name, amount: prev.amount,
-                          date: prev.date, status: prev.status, notes: prev.notes, category: prev.category,
-                        } : null)}
+                        onChange={(e) => {
+                          setInstallments(1);
+                          setModal((prev) =>
+                            prev
+                              ? {
+                                  ...empty(e.target.value as Kind),
+                                  name: prev.name,
+                                  amount: prev.amount,
+                                  date: prev.date,
+                                  status: prev.status,
+                                  notes: prev.notes,
+                                  category: prev.category,
+                                }
+                              : null,
+                          );
+                        }}
                       >
-                        {Object.entries(labels).filter(([k]) => page !== "debts" || !!modal.id || k !== "income").map(([k, v]) => (
-                          <option key={k} value={k}>
-                            {v}
-                          </option>
-                        ))}
+                        {Object.entries(labels)
+                          .filter(
+                            ([k]) =>
+                              k !== "salary" &&
+                              (page !== "debts" ||
+                                !!modal.id ||
+                                k !== "income"),
+                          )
+                          .map(([k, v]) => (
+                            <option key={k} value={k}>
+                              {v}
+                            </option>
+                          ))}
                       </select>
                     </label>
                     <label>
                       Situação
                       <select
                         value={modal.status}
-                        disabled={page === "debts" && !modal.id}
+                        disabled={
+                          (page === "debts" && !modal.id) || installments > 1
+                        }
                         onChange={(e) => update("status", e.target.value)}
                       >
                         <option value="paid">
@@ -1521,7 +1546,11 @@ function App() {
                     {modal.kind !== "bm" && modal.kind !== "fee" && (
                       <MoneyField
                         label={
-                          modal.kind === "income" ? "Valor bruto" : "Valor"
+                          modal.kind === "income"
+                            ? "Valor bruto"
+                            : installments > 1
+                              ? "Valor total da compra / dívida"
+                              : "Valor"
                         }
                         value={modal.amount}
                         onChange={(n) => update("amount", n)}
@@ -1707,44 +1736,98 @@ function App() {
                       </p>
                     </div>
                   )}
-                  {["tool", "fixed", "salary", "payroll"].includes(
-                    modal.kind,
-                  ) && (
-                    <div className="form-section">
-                      <label className="checkbox">
-                        <input
-                          type="checkbox"
-                          checked={modal.recurring}
-                          onChange={(e) =>
-                            update("recurring", e.target.checked)
-                          }
-                        />{" "}
-                        Repetir mensalmente
-                      </label>
-                      {modal.recurring && (
-                        <>
-                          <label>
-                            Data de encerramento (opcional)
-                            <input
-                              type="date"
-                              min={modal.date}
-                              max="2100-12-31"
-                              value={modal.endDate}
-                              onChange={(e) =>
-                                update("endDate", e.target.value)
-                              }
-                            />
-                          </label>
-                          <p className="field-help">
-                            O valor e a situação se repetem todos os meses.
-                            Alterar este cadastro afeta todas as ocorrências.
-                            Para pagamentos individuais, use lançamentos sem
-                            recorrência.
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  {!modal.id &&
+                    (modal.kind === "fixed" || page === "debts") &&
+                    !["income", "bm", "fee"].includes(modal.kind) && (
+                      <div className="form-section">
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={installments > 1}
+                            onChange={(e) => {
+                              setInstallments(e.target.checked ? 2 : 1);
+                              if (e.target.checked)
+                                setModal({
+                                  ...modal,
+                                  recurring: false,
+                                  endDate: "",
+                                  status: "pending",
+                                });
+                            }}
+                          />
+                          Parcelado
+                        </label>
+                        {installments > 1 && (
+                          <>
+                            <label>
+                              Quantidade de parcelas
+                              <input
+                                type="number"
+                                min="2"
+                                max="60"
+                                step="1"
+                                required
+                                value={installments}
+                                onChange={(e) =>
+                                  setInstallments(
+                                    Math.max(
+                                      2,
+                                      Math.min(60, Number(e.target.value) || 2),
+                                    ),
+                                  )
+                                }
+                              />
+                            </label>
+                            <p className="field-help">
+                              O valor total será dividido em {installments}{" "}
+                              parcelas mensais. A data informada é o primeiro
+                              vencimento. Todas começam pendentes e podem ser
+                              pagas individualmente. Eventuais centavos são
+                              distribuídos nas primeiras parcelas.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  {installments === 1 &&
+                    ["tool", "fixed", "salary", "payroll"].includes(
+                      modal.kind,
+                    ) && (
+                      <div className="form-section">
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={modal.recurring}
+                            onChange={(e) =>
+                              update("recurring", e.target.checked)
+                            }
+                          />{" "}
+                          Repetir mensalmente
+                        </label>
+                        {modal.recurring && (
+                          <>
+                            <label>
+                              Data de encerramento (opcional)
+                              <input
+                                type="date"
+                                min={modal.date}
+                                max="2100-12-31"
+                                value={modal.endDate}
+                                onChange={(e) =>
+                                  update("endDate", e.target.value)
+                                }
+                              />
+                            </label>
+                            <p className="field-help">
+                              O valor e a situação se repetem todos os meses.
+                              Alterar este cadastro afeta todas as ocorrências.
+                              Para pagamentos individuais, use lançamentos sem
+                              recorrência.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
                   <label>
                     Observações
                     <textarea
