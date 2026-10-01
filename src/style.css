@@ -2351,3 +2351,31 @@ dialog {
     padding: 16px;
   }
 }
+
+/* Keep only the form body scrollable, so controls remain reachable on phones. */
+dialog { overflow: hidden; margin: auto; max-height: calc(100dvh - 24px); }
+dialog > form { display: flex; flex-direction: column; max-height: calc(100dvh - 26px); min-width: 0; }
+.modal-header, .modal-footer { flex: 0 0 auto; }
+.modal-header > div { min-width: 0; }
+.modal-header .icon-button { flex-shrink: 0; }
+.modal-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.modal-footer { position: static; }
+.form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-grid > *, .modal-body label, .money-input { min-width: 0; }
+.modal-body input, .modal-body select, .modal-body textarea { max-width: 100%; box-sizing: border-box; }
+@media (max-width: 640px) {
+ dialog { width: calc(100% - 16px); max-width: calc(100% - 16px); max-height: calc(100dvh - 16px); border-radius: 12px; }
+ dialog > form { max-height: calc(100dvh - 18px); }
+ .modal-header { padding: 12px 14px; }
+ .modal-header h2 { font-size: 18px; line-height: 1.25; }
+ .modal-header .eyebrow { font-size: 9px; }
+ .modal-body { padding: 14px; gap: 14px; }
+ .modal-body .form-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+ .modal-body input, .modal-body select, .modal-body textarea { font-size: 16px; min-width: 0; }
+ .modal-body textarea { min-height: 64px; }
+ .modal-footer { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); gap: 8px; }
+ .modal-footer > button { flex: 1; min-width: 0; padding: 10px 8px; font-size: 12px; min-height: 44px; }
+ .modal-body .part-row { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 8px; }
+ .modal-body .part-row > input { grid-column: 1 / -1; }
+ .goals-panel .panel-head { flex-wrap: wrap; gap: 12px; }
+}

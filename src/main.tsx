@@ -1,3 +1,4 @@
+import { Debts } from "./DebtsPage";
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -139,7 +140,13 @@ function App() {
   const [goalError, setGoalError] = useState("");
 
   const [page, setPage] = useState<
-    Kind | "dashboard" | "cash" | "pricing" | "notifications" | "goals"
+    | Kind
+    | "dashboard"
+    | "cash"
+    | "pricing"
+    | "notifications"
+    | "goals"
+    | "debts"
   >(
     new URLSearchParams(location.search).get("view") === "notifications"
       ? "notifications"
@@ -208,13 +215,18 @@ function App() {
     return () => controller.abort();
   }, [auth, page]);
   const specialPage =
-    page === "pricing" || page === "notifications" || page === "goals";
+    page === "pricing" ||
+    page === "notifications" ||
+    page === "goals" ||
+    page === "debts";
   const specialTitle =
     page === "pricing"
       ? "Precificação por chips"
       : page === "goals"
         ? "Metas"
-        : "Notificações";
+        : page === "debts"
+          ? "Dívidas atrasadas"
+          : "Notificações";
   const dialogRef = useRef<HTMLDialogElement>(null);
   const load = async () => {
     const d = await api("data");
@@ -286,6 +298,9 @@ function App() {
     setError("");
     try {
       if (modal) {
+        if (page === "debts" && !modal.id && (modal.kind === "income" || modal.status !== "pending" || modal.date >= today())) {
+          throw new Error("Para adicionar uma dívida atrasada, informe uma despesa pendente com vencimento anterior a hoje.");
+        }
         await api("entries", "POST", modal);
         setModal(null);
       } else if (cashModal) {
@@ -517,6 +532,7 @@ function App() {
         {nav("cash", "Valor em caixa", Landmark)}
         {nav("pricing", "Precificação por chips", Calculator)}
         {nav("goals", "Metas", TrendingUp)}
+        {nav("debts", "Dívidas atrasadas", AlertCircle)}
         {nav("notifications", "Notificações", Bell)}
         <div className="nav-label spaced">GESTÃO FINANCEIRA</div>
         {nav("income", "Entradas de receita", TrendingUp)}
@@ -629,7 +645,9 @@ function App() {
                         ? "Calcule chips, custos e margem para cada lote de mensagens."
                         : page === "goals"
                           ? "Planeje o mês e acompanhe seu histórico de resultados."
-                          : "Seus compromissos e alertas, sempre à mão."
+                          : page === "debts"
+                            ? "Organize os pagamentos vencidos e acompanhe suas pendências."
+                            : "Seus compromissos e alertas, sempre à mão."
                       : (
                           {
                             income:
@@ -679,6 +697,20 @@ function App() {
             <Notifications
               navigate={navigate}
               onUnreadChange={setUnreadCount}
+            />
+          ) : page === "debts" ? (
+            <Debts
+              entries={entries}
+              onEdit={open}
+              onAdd={() =>
+                open({
+                  ...empty("daily"),
+                  status: "pending",
+                  date: new Date(Date.parse(today() + "T12:00:00Z") - 86400000)
+                    .toISOString()
+                    .slice(0, 10),
+                })
+              }
             />
           ) : page === "goals" ? (
             <Goals />
@@ -1372,6 +1404,7 @@ function App() {
       </main>
       <dialog
         ref={dialogRef}
+        aria-labelledby="entry-dialog-title"
         onCancel={(e) => {
           e.preventDefault();
           close();
@@ -1384,14 +1417,14 @@ function App() {
           <div className="modal-header">
             <div>
               <span className="eyebrow">BIGCASH · FINANCEIRO</span>
-              <h2>
+              <h2 id="entry-dialog-title">
                 {del
                   ? "Excluir lançamento?"
                   : cashModal
                     ? "Configurar saldo inicial"
                     : modal?.id
                       ? "Editar lançamento"
-                      : "Novo lançamento"}
+                      : page === "debts" ? "Adicionar dívida atrasada" : "Novo lançamento"}
               </h2>
             </div>
             <button
@@ -1435,11 +1468,12 @@ function App() {
                       <select
                         value={modal.kind}
                         disabled={!!modal.id}
-                        onChange={(e) =>
-                          setModal(empty(e.target.value as Kind))
-                        }
+                        onChange={(e) => setModal(prev => prev ? {
+                          ...empty(e.target.value as Kind), name: prev.name, amount: prev.amount,
+                          date: prev.date, status: prev.status, notes: prev.notes, category: prev.category,
+                        } : null)}
                       >
-                        {Object.entries(labels).map(([k, v]) => (
+                        {Object.entries(labels).filter(([k]) => page !== "debts" || !!modal.id || k !== "income").map(([k, v]) => (
                           <option key={k} value={k}>
                             {v}
                           </option>
@@ -1450,6 +1484,7 @@ function App() {
                       Situação
                       <select
                         value={modal.status}
+                        disabled={page === "debts" && !modal.id}
                         onChange={(e) => update("status", e.target.value)}
                       >
                         <option value="paid">
@@ -1461,7 +1496,6 @@ function App() {
                     <label className="span2">
                       Descrição
                       <input
-                        autoFocus
                         required
                         maxLength={120}
                         value={modal.name}

@@ -69,8 +69,13 @@ export function Notifications({
       setPublicKey(data.publicKey || "");
       if ("serviceWorker" in navigator) {
         const reg = await registerWorker();
-        if ("pushManager" in reg)
-          setSubscription(await reg.pushManager.getSubscription());
+        if ("pushManager" in reg) {
+          const sub = await reg.pushManager.getSubscription();
+          // Restore server registration if it was removed or a prior save failed.
+          if (sub && data.pushConfigured)
+            await request("push/subscribe", sub.toJSON());
+          setSubscription(sub);
+        }
       }
     } catch (e) {
       setError((e as Error).message);
@@ -292,12 +297,15 @@ export function Notifications({
               disabled={busy || !configured}
               onClick={async () => {
                 setBusy(true);
+                setError("");
+                setMessage("");
                 try {
+                  await request("push/subscribe", subscription.toJSON());
                   await request("push/test", {
                     endpoint: subscription.endpoint,
                   });
                   setMessage(
-                    "Teste enviado. Confira as notificações do dispositivo.",
+                    "Teste aceito pelo serviço de notificações. Confira o dispositivo; se não aparecer, revise as permissões do navegador e o modo Foco/Não perturbe.",
                   );
                 } catch (e) {
                   setError((e as Error).message);

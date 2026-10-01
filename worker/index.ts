@@ -39,7 +39,9 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ) {
-    ctx.waitUntil(monthlyHistory(env.DB).then(() => dailyNotifications(env)));
+    ctx.waitUntil(
+      Promise.all([monthlyHistory(env.DB), dailyNotifications(env)]),
+    );
   },
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);

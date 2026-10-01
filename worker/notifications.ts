@@ -1,6 +1,6 @@
 import webpush from "web-push";
-import { buildAlerts } from "../src/notifications";
-import { type Entry, today } from "../src/finance";
+import { buildAlerts } from "../src/notifications.ts";
+import { type Entry, today } from "../src/finance.ts";
 export interface NotificationEnv {
   DB: D1Database;
   VAPID_PUBLIC_KEY?: string;
@@ -81,7 +81,9 @@ export async function sendPush(
     method: request.method,
     headers: request.headers as HeadersInit,
     body: request.body ? new Uint8Array(request.body) : undefined,
-    redirect: "error",
+    // Workers supports manual/follow only. Reject 3xx below without following it.
+    redirect: "manual",
+    signal: AbortSignal.timeout(15000),
   });
   if (response.status === 404 || response.status === 410) {
     await env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint=?")
