@@ -1,4 +1,4 @@
-import { monthlyHistory } from "./monthly";
+import { operationsApi } from "./operations";
 import { today } from "../src/finance";
 import { validate, validDate, type Entry } from "../src/finance";
 import { installmentEntries } from "../src/installments";
@@ -39,9 +39,7 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ) {
-    ctx.waitUntil(
-      Promise.all([monthlyHistory(env.DB), dailyNotifications(env)]),
-    );
+    ctx.waitUntil(dailyNotifications(env));
   },
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -98,10 +96,38 @@ export default {
           .first());
       if (!session)
         return json({ error: "Entre para acessar suas finanças." }, 401);
+      const operations = await operationsApi(req, env.DB);
+      if (operations) return operations;
+      if (
+        req.method !== "GET" &&
+        [
+          "/api/entries",
+          "/api/installments",
+          "/api/settings",
+          "/api/monthly-goals",
+          "/api/pricing",
+        ].some(
+          (path) =>
+            url.pathname === path || url.pathname.startsWith(path + "/"),
+        )
+      )
+        return json(
+          {
+            error:
+              "Histórico legado preservado. Utilize os novos lançamentos financeiros.",
+          },
+          409,
+        );
       const notifications = await notificationApi(req, env);
       if (notifications) return notifications;
       if (url.pathname === "/api/monthly-goals" && req.method === "GET")
-        return json({ months: await monthlyHistory(env.DB) });
+        return json({
+          months: (
+            await env.DB.prepare(
+              "SELECT * FROM monthly_goals ORDER BY month",
+            ).all()
+          ).results,
+        });
       if (url.pathname === "/api/monthly-goals" && req.method === "PUT") {
         const body = (await req.json()) as {
           month: string;
@@ -128,7 +154,6 @@ export default {
           .run();
         return json({ ok: true });
       }
-      if (req.method !== "GET") await monthlyHistory(env.DB);
       if (url.pathname === "/api/logout" && req.method === "POST") {
         await env.DB.prepare("DELETE FROM sessions WHERE token=?")
           .bind(await hash(cookie!))
@@ -261,3 +286,4 @@ export default {
     }
   },
 };
+

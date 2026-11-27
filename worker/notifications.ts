@@ -1,6 +1,9 @@
 import webpush from "web-push";
 import { buildAlerts } from "../src/notifications.ts";
 import { type Entry, today } from "../src/finance.ts";
+import { outstanding, campaignTotals, type State } from "../src/operations.ts";
+import { readWorkspace } from "./operations.ts";
+import type { FinanceAlert } from "../src/notifications.ts";
 export interface NotificationEnv {
   DB: D1Database;
   VAPID_PUBLIC_KEY?: string;
@@ -10,6 +13,20 @@ export interface NotificationEnv {
 const reply = (d: unknown, status = 200) =>
   Response.json(d, { status, headers: { "Cache-Control": "no-store" } });
 export async function readAlerts(env: NotificationEnv) {
+  const workspace = await env.DB.prepare(
+    "SELECT id FROM finance_workspace WHERE id=1",
+  ).first();
+  if (workspace) {
+    const { state } = await readWorkspace(env.DB);
+    const reads = await env.DB.prepare(
+      "SELECT id FROM notification_reads",
+    ).all<{ id: string }>();
+    const seen = new Set(reads.results.map((x) => x.id));
+    return operationAlerts(state, today()).map((a) => ({
+      ...a,
+      read: seen.has(a.id),
+    }));
+  }
   const [rows, reads] = await Promise.all([
     env.DB.prepare("SELECT data FROM entries").all<{ data: string }>(),
     env.DB.prepare("SELECT id FROM notification_reads").all<{ id: string }>(),
@@ -19,6 +36,40 @@ export async function readAlerts(env: NotificationEnv) {
     rows.results.map((x) => JSON.parse(x.data) as Entry),
     today(),
   ).map((a) => ({ ...a, read: seen.has(a.id) }));
+}
+export function operationAlerts(s: State, date: string): FinanceAlert[] {
+  const until = new Date(Date.parse(date) + 3 * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const alerts: FinanceAlert[] = s.entries
+    .filter((e) => e.due <= until && outstanding(s, e, date) > 0)
+    .map((e) => ({
+      id: `v2:${e.id}:${e.due}:${e.due < date ? "overdue" : e.due === date ? "due" : "upcoming"}`,
+      title:
+        e.due < date
+          ? "Lançamento em atraso"
+          : e.due === date
+            ? "Vence hoje"
+            : "Próximo vencimento",
+      body: e.name,
+      kind: e.due < date ? "overdue" : e.due === date ? "due" : "upcoming",
+      entryKind: e.kind === "income" ? "income" : "daily",
+      date: e.due,
+    }));
+  for (const c of s.campaigns.filter(
+    (c) =>
+      c.operational === "completed" &&
+      campaignTotals(s, c).pending.includes("meta"),
+  ))
+    alerts.push({
+      id: `v2:${c.id}:meta`,
+      title: "Campanha aguardando Meta",
+      body: c.name,
+      kind: "review",
+      entryKind: "bm",
+      date: c.performed || c.planned || date,
+    });
+  return alerts;
 }
 export function validateSubscription(input: unknown): webpush.PushSubscription {
   const s = input as webpush.PushSubscription;
@@ -234,12 +285,10 @@ export async function dailyNotifications(env: NotificationEnv) {
         tag: "bigcash-daily-" + date,
       });
     } catch (error) {
-      await env.DB.prepare(
-        "UPDATE push_subscriptions SET last_sent_day=NULL WHERE endpoint=? AND last_sent_day=?",
-      )
-        .bind(device.endpoint, date)
-        .run();
+      // Do not release an ambiguous delivery claim: a timeout can occur after
+      // the provider accepted the push. Stable daily tags and claims avoid duplicates.
       console.error("Daily push delivery failed", String(error));
     }
   }
 }
+
