@@ -1,6 +1,8 @@
 # BigCash
 
-Controle financeiro em português para uma operação de campanhas de disparo. React + TypeScript, Cloudflare Workers, D1 e autenticação administrativa existentes foram preservados.
+Controle financeiro em português para uma operação de campanhas de disparo. Interface React + TypeScript na Vercel; API, D1 e autenticação administrativa existentes na Cloudflare.
+
+Endereço de produção: [bigcash-two.vercel.app](https://bigcash-two.vercel.app). Entre com a senha administrativa já existente.
 
 A nova navegação reúne Dashboard, Lançamentos (com campanhas, precificação e recursos expansíveis), Extrato e conciliação, Contas e carteiras, Contas a pagar/receber, Fluxo de caixa, DRE gerencial, Posição patrimonial e Configurações. Não há módulo fiscal ativo.
 
@@ -52,4 +54,3 @@ npm run deploy
 ```
 
 Preserve a senha e os secrets existentes. Leia o procedimento completo antes de publicar. As APIs de bancos/Open Finance, Meta e plataforma de disparo não estão conectadas: dependem dos fornecedores, credenciais e eventual contratação. OFX/CSV e o fluxo manual estão implementados. Web Push existente depende de VAPID configurado; não há mensagens automatizadas a clientes, pagamentos ou saques.
-

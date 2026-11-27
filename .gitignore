@@ -3,6 +3,7 @@ dist/
 .wrangler/
 .dev.vars
 .env*
+.vercel/
 .DS_Store
 
 .vapid-secrets.json

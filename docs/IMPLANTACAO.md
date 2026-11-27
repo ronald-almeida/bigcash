@@ -1,6 +1,18 @@
 # Publicação e recuperação
 
-Nenhuma migração remota ou publicação em produção é executada automaticamente por esta alteração.
+Em 27/11/2026, a publicação solicitada usa a Vercel para a interface e mantém Cloudflare Workers + D1 para a API e os dados existentes. O endereço público é https://bigcash-two.vercel.app. A senha administrativa e os secrets VAPID existentes foram mantidos.
+
+## Publicação na Vercel
+
+O projeto `bigcash` pertence à equipe `ronald-almeida-4717s-projects` e usa Node.js 24, `npm ci`, `npm run build` e saída `dist`. `vercel.json` encaminha `/api/*` para o Worker existente. Nenhum secret Cloudflare ou senha deve ser copiado para o frontend ou para variáveis `VITE_*`.
+
+O Worker aceita gravações somente da própria origem e dos endereços exatos de `ALLOWED_APP_ORIGINS` em `wrangler.jsonc`. Apenas o domínio de produção da Vercel está autorizado; URLs temporárias de preview não podem gravar no banco real. Não habilite `*.vercel.app`. Ao adicionar um domínio próprio, atualize a lista explicitamente e republique o Worker.
+
+As respostas de API não usam cache da Vercel nem do service worker. O cookie continua `HttpOnly`, `Secure` em HTTPS e `SameSite=Strict`, servido pelo mesmo domínio da interface. Cada domínio exige seu próprio login com a senha existente. Web Push requer nova inscrição no navegador ao mudar de domínio.
+
+Para novas versões, valide o commit, faça o backup e as migrações necessárias, publique o Worker e então a interface na Vercel. Não mude o banco ou os secrets para publicar a interface. O deploy desta entrega é explícito a partir do commit da branch do PR; não foi habilitada publicação automática da branch `main` antiga. A integração Git pode ser ativada após a revisão e merge.
+
+Teste após publicar: HTML e arquivos estáticos com status 200; `/api/operations` sem sessão com 401 JSON; mutação de origem não autorizada com 403. Confirme o login com a senha atual e confira o histórico em Configurações. Nunca execute as fixtures de integração no banco real.
 
 ## Preparação
 
@@ -29,4 +41,3 @@ Em seguida, publique com o mecanismo existente (`npm run deploy`) e confira logi
 - O arquivo `.verified.json` registra hash, contagens e o resultado do teste local de restauração. Mantenha-o junto do SQL e da referência de recuperação em armazenamento privado.
 
 As revisões da operação são divididas em fragmentos para respeitar o [limite oficial de tamanho de linha do D1](https://developers.cloudflare.com/d1/platform/limits/). Os limites de upload e estado são explícitos e falham sem descartar dados.
-

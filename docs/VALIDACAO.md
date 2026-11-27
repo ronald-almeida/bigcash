@@ -8,7 +8,7 @@ Verificação local em 27/11/2026. Nenhum teste utilizou credenciais bancárias,
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Dependências       | `npm ci` com as versões exatas do `package-lock.json`: React 19.3.0, Vite 8.3.1, Wrangler 4.141.0 e TypeScript 7.0.2           |
 | Tipos              | `tsc --noEmit` sem erros                                                                                                       |
-| Unidade e migração | 42 testes passaram; inclui 27 regressões anteriores e 15 verificações novas                                                    |
+| Unidade e migração | 44 testes passaram; inclui 27 regressões anteriores, 15 verificações de operação/migração e 2 de origem Vercel                 |
 | API + D1 local     | 30 verificações passaram com o Worker real e banco D1 local descartável                                                        |
 | Frontend           | Build Vite passou; bundle JS aproximadamente 91 KB gzip                                                                        |
 | Worker             | `wrangler deploy --dry-run` passou, sem publicar                                                                               |
@@ -42,9 +42,10 @@ Também foram conferidos: recarga de R$ 200 com consumo de R$ 70 deixando R$ 130
 
 ## Limites do que foi verificado
 
-Não houve publicação, migração remota, teste de credenciais externas nem conferência do conteúdo real do banco de produção. O script de migração exige backup novo e restauração de teste quando for executado no ambiente remoto. O histórico real precisa ser conferido antes de sua conversão, sobretudo recorrências antigas e saldo inicial global.
+Na publicação solicitada em 27/11/2026, foi exportado o banco real para armazenamento local privado, registrada a referência Time Travel e restaurado o SQL em SQLite para conferir integridade antes de aplicar 0007/0008. O Worker atualizado mantém o mesmo D1 e os secrets existentes. O histórico real precisa ser conferido pelo responsável antes da conversão, sobretudo recorrências antigas e saldo inicial global. Nenhuma fixture financeira foi aplicada em produção.
+
+Foram acrescentados dois testes de origem para a Vercel, totalizando 44 testes unitários/de migração aprovados. A lista aceita apenas origens exatas e rejeita outros projetos Vercel, domínios semelhantes, protocolo/porta diferentes e origem ausente. A suíte de API local tem 30 verificações aprovadas.
 
 As conexões automáticas com bancos, Open Finance, Meta e plataformas continuam dependências externas. O funcionamento entregue é manual/importação com persistência. O balanço permanece identificado como posição incompleta.
 
 A recuperação local também foi testada: cópia consistente da base descartável, exportação SQL e restauração em SQLite passaram na integridade, com contagens iguais para dados financeiros, auditoria, revisões, anexos e tabelas antigas.
-

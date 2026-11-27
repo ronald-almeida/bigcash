@@ -1,4 +1,5 @@
 import { operationsApi } from "./operations";
+import { allowedMutationOrigin } from "./origin";
 import { today } from "../src/finance";
 import { validate, validDate, type Entry } from "../src/finance";
 import { installmentEntries } from "../src/installments";
@@ -11,6 +12,7 @@ interface Env extends NotificationEnv {
   DB: D1Database;
   ASSETS: Fetcher;
   APP_PASSWORD: string;
+  ALLOWED_APP_ORIGINS?: string;
 }
 const json = (
   data: unknown,
@@ -50,7 +52,14 @@ export default {
           { error: "O administrador precisa configurar a senha de acesso." },
           503,
         );
-      if (req.method !== "GET" && req.headers.get("Origin") !== url.origin)
+      if (
+        req.method !== "GET" &&
+        !allowedMutationOrigin(
+          req.headers.get("Origin"),
+          req.url,
+          env.ALLOWED_APP_ORIGINS,
+        )
+      )
         return json({ error: "Origem não permitida." }, 403);
       const now = Date.now();
       const cookie = req.headers
@@ -286,4 +295,3 @@ export default {
     }
   },
 };
-

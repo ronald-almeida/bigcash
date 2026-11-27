@@ -41,7 +41,8 @@ if (existsSync(backup))
 mkdirSync(dirname(backup), { recursive: true });
 const recovery = cli(["d1", "time-travel", "info", "bigcash-db"], true);
 writeFileSync(backup + ".recovery.txt", recovery, { flag: "wx" });
-cli(["d1", "export", "bigcash-db", "--remote", "--output", backup]);
+// Wrangler prints a signed download URL; keep it out of shared terminal logs.
+cli(["d1", "export", "bigcash-db", "--remote", "--output", backup], true);
 const sql = readFileSync(backup, "utf8");
 if (sql.length < 100 || !sql.includes("CREATE TABLE"))
   throw Error("Backup incompleto. Migração cancelada.");
@@ -88,4 +89,3 @@ console.log(
   "Backup completo restaurado localmente e verificado. Referência de recuperação gravada. Aplicando migrações aditivas.",
 );
 cli(["d1", "migrations", "apply", "bigcash-db", "--remote"]);
-

@@ -1,0 +1,6 @@
+.git
+.wrangler
+.dev.vars
+.env*
+.vapid-secrets.json
+node_modules
