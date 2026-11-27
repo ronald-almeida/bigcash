@@ -7,8 +7,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Local D1 and API integration
+        shell: bash
+        run: |
+          printf 'APP_PASSWORD="bigcash-local-test-only"\n' > .dev.vars
+          npm run db:local
+          npx wrangler dev --ip 127.0.0.1 --port 8787 > /tmp/bigcash-test.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid"' EXIT
+          for attempt in {1..30}; do
+            if curl -s http://127.0.0.1:8787/ > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:api
+

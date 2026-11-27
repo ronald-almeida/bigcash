@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "bigcash",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "ALLOWED_APP_ORIGINS": "https://bigcash-two.vercel.app",
+  },
   "triggers": { "crons": ["0 12 * * *"] },
   "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
